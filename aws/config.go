@@ -69,6 +69,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/inspector"
 	"github.com/aws/aws-sdk-go/service/iot"
+	"github.com/aws/aws-sdk-go/service/kafka"
 	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/aws/aws-sdk-go/service/kinesisanalytics"
 	"github.com/aws/aws-sdk-go/service/kms"
@@ -141,6 +142,7 @@ type Config struct {
 	EsEndpoint               string
 	ElbEndpoint              string
 	IamEndpoint              string
+	KafkaEndpoint            string
 	KinesisEndpoint          string
 	KinesisAnalyticsEndpoint string
 	KmsEndpoint              string
@@ -211,6 +213,7 @@ type AWSClient struct {
 	region                string
 	rdsconn               *rds.RDS
 	iamconn               *iam.IAM
+	kafkaconn             *kafka.Kafka
 	kinesisconn           *kinesis.Kinesis
 	kinesisanalyticsconn  *kinesisanalytics.KinesisAnalytics
 	kmsconn               *kms.KMS
@@ -424,6 +427,7 @@ func (c *Config) Client() (interface{}, error) {
 	awsEsSess := sess.Copy(&aws.Config{Endpoint: aws.String(c.EsEndpoint)})
 	awsIamSess := sess.Copy(&aws.Config{Endpoint: aws.String(c.IamEndpoint)})
 	awsLambdaSess := sess.Copy(&aws.Config{Endpoint: aws.String(c.LambdaEndpoint)})
+	awsKafkaSess := sess.Copy(&aws.Config{Endpoint: aws.String(c.KafkaEndpoint)})
 	awsKinesisSess := sess.Copy(&aws.Config{Endpoint: aws.String(c.KinesisEndpoint)})
 	awsKinesisAnalyticsSess := sess.Copy(&aws.Config{Endpoint: aws.String(c.KinesisAnalyticsEndpoint)})
 	awsKmsSess := sess.Copy(&aws.Config{Endpoint: aws.String(c.KmsEndpoint)})
@@ -547,6 +551,7 @@ func (c *Config) Client() (interface{}, error) {
 	client.glacierconn = glacier.New(sess)
 	client.guarddutyconn = guardduty.New(sess)
 	client.iotconn = iot.New(sess)
+	client.kafkaconn = kafka.New(awsKafkaSess)
 	client.kinesisconn = kinesis.New(awsKinesisSess)
 	client.kinesisanalyticsconn = kinesisanalytics.New(awsKinesisAnalyticsSess)
 	client.kmsconn = kms.New(awsKmsSess)

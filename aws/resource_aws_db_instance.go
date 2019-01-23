@@ -408,6 +408,8 @@ func resourceAwsDbInstance() *schema.Resource {
 						"listener",
 						"slowquery",
 						"trace",
+						"postgresql",
+						"upgrade",
 					}, false),
 				},
 			},
@@ -1258,7 +1260,7 @@ func resourceAwsDbInstanceDelete(d *schema.ResourceData, meta interface{}) error
 	skipFinalSnapshot := d.Get("skip_final_snapshot").(bool)
 	opts.SkipFinalSnapshot = aws.Bool(skipFinalSnapshot)
 
-	if skipFinalSnapshot == false {
+	if !skipFinalSnapshot {
 		if name, present := d.GetOk("final_snapshot_identifier"); present {
 			opts.FinalDBSnapshotIdentifier = aws.String(name.(string))
 		} else {

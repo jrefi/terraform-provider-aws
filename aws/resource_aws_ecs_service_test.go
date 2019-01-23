@@ -82,7 +82,7 @@ func TestAccAWSEcsService_basicImport(t *testing.T) {
 				ImportStateId:     fmt.Sprintf("%s/nonexistent", clusterName),
 				ImportState:       true,
 				ImportStateVerify: false,
-				ExpectError:       regexp.MustCompile(`Please verify the ID is correct`),
+				ExpectError:       regexp.MustCompile(`(Please verify the ID is correct|Cannot import non-existent remote object)`),
 			},
 		},
 	})
@@ -570,6 +570,7 @@ func TestAccAWSEcsService_withLaunchTypeFargate(t *testing.T) {
 					resource.TestCheckResourceAttr("aws_ecs_service.main", "network_configuration.0.assign_public_ip", "false"),
 					resource.TestCheckResourceAttr("aws_ecs_service.main", "network_configuration.0.security_groups.#", "2"),
 					resource.TestCheckResourceAttr("aws_ecs_service.main", "network_configuration.0.subnets.#", "2"),
+					resource.TestCheckResourceAttr("aws_ecs_service.main", "platform_version", "LATEST"),
 				),
 			},
 			{
@@ -584,6 +585,46 @@ func TestAccAWSEcsService_withLaunchTypeFargate(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckAWSEcsServiceExists("aws_ecs_service.main", &service),
 					resource.TestCheckResourceAttr("aws_ecs_service.main", "network_configuration.0.assign_public_ip", "false"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccAWSEcsService_withLaunchTypeFargateAndPlatformVersion(t *testing.T) {
+	var service ecs.Service
+	rString := acctest.RandString(8)
+
+	sg1Name := fmt.Sprintf("tf-acc-sg-1-svc-ltf-w-pv-%s", rString)
+	sg2Name := fmt.Sprintf("tf-acc-sg-2-svc-ltf-w-pv-%s", rString)
+	clusterName := fmt.Sprintf("tf-acc-cluster-svc-ltf-w-pv-%s", rString)
+	tdName := fmt.Sprintf("tf-acc-td-svc-ltf-w-pv-%s", rString)
+	svcName := fmt.Sprintf("tf-acc-svc-ltf-w-pv-%s", rString)
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckAWSEcsServiceDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSEcsServiceWithLaunchTypeFargateAndPlatformVersion(sg1Name, sg2Name, clusterName, tdName, svcName, "1.2.0"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckAWSEcsServiceExists("aws_ecs_service.main", &service),
+					resource.TestCheckResourceAttr("aws_ecs_service.main", "platform_version", "1.2.0"),
+				),
+			},
+			{
+				Config: testAccAWSEcsServiceWithLaunchTypeFargateAndPlatformVersion(sg1Name, sg2Name, clusterName, tdName, svcName, "1.3.0"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckAWSEcsServiceExists("aws_ecs_service.main", &service),
+					resource.TestCheckResourceAttr("aws_ecs_service.main", "platform_version", "1.3.0"),
+				),
+			},
+			{
+				Config: testAccAWSEcsServiceWithLaunchTypeFargateAndPlatformVersion(sg1Name, sg2Name, clusterName, tdName, svcName, "LATEST"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckAWSEcsServiceExists("aws_ecs_service.main", &service),
+					resource.TestCheckResourceAttr("aws_ecs_service.main", "platform_version", "LATEST"),
 				),
 			},
 		},
@@ -1320,11 +1361,99 @@ resource "aws_ecs_service" "main" {
   launch_type = "FARGATE"
   network_configuration {
     security_groups = ["${aws_security_group.allow_all_a.id}", "${aws_security_group.allow_all_b.id}"]
-    subnets = ["${aws_subnet.main.*.id}"]
+    subnets = ["${aws_subnet.main.*.id[0]}", "${aws_subnet.main.*.id[1]}"]
     assign_public_ip = %s
   }
 }
 `, sg1Name, sg2Name, clusterName, tdName, svcName, assignPublicIP)
+}
+
+func testAccAWSEcsServiceWithLaunchTypeFargateAndPlatformVersion(sg1Name, sg2Name, clusterName, tdName, svcName, platformVersion string) string {
+	return fmt.Sprintf(`
+data "aws_availability_zones" "available" {}
+
+resource "aws_vpc" "main" {
+  cidr_block = "10.10.0.0/16"
+  tags = {
+    Name = "terraform-testacc-ecs-service-with-launch-type-fargate-and-platform-version"
+  }
+}
+
+resource "aws_subnet" "main" {
+  count = 2
+  cidr_block = "${cidrsubnet(aws_vpc.main.cidr_block, 8, count.index)}"
+  availability_zone = "${data.aws_availability_zones.available.names[count.index]}"
+  vpc_id = "${aws_vpc.main.id}"
+  tags = {
+    Name = "tf-acc-ecs-service-with-launch-type-fargate-and-platform-version"
+  }
+}
+
+resource "aws_security_group" "allow_all_a" {
+  name        = "%s"
+  description = "Allow all inbound traffic"
+  vpc_id      = "${aws_vpc.main.id}"
+
+  ingress {
+    protocol = "6"
+    from_port = 80
+    to_port = 8000
+    cidr_blocks = ["${aws_vpc.main.cidr_block}"]
+  }
+}
+
+resource "aws_security_group" "allow_all_b" {
+  name        = "%s"
+  description = "Allow all inbound traffic"
+  vpc_id      = "${aws_vpc.main.id}"
+
+  ingress {
+    protocol = "6"
+    from_port = 80
+    to_port = 8000
+    cidr_blocks = ["${aws_vpc.main.cidr_block}"]
+  }
+}
+
+resource "aws_ecs_cluster" "main" {
+  name = "%s"
+}
+
+resource "aws_ecs_task_definition" "mongo" {
+  family = "%s"
+  network_mode = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu = "256"
+  memory = "512"
+
+  container_definitions = <<DEFINITION
+[
+  {
+    "cpu": 256,
+    "essential": true,
+    "image": "mongo:latest",
+    "memory": 512,
+    "name": "mongodb",
+    "networkMode": "awsvpc"
+  }
+]
+DEFINITION
+}
+
+resource "aws_ecs_service" "main" {
+  name = "%s"
+  cluster = "${aws_ecs_cluster.main.id}"
+  task_definition = "${aws_ecs_task_definition.mongo.arn}"
+  desired_count = 1
+  launch_type = "FARGATE"
+  platform_version = %q
+  network_configuration {
+    security_groups = ["${aws_security_group.allow_all_a.id}", "${aws_security_group.allow_all_b.id}"]
+    subnets = ["${aws_subnet.main.*.id[0]}", "${aws_subnet.main.*.id[1]}"]
+    assign_public_ip = false
+  }
+}
+`, sg1Name, sg2Name, clusterName, tdName, svcName, platformVersion)
 }
 
 func testAccAWSEcsService_healthCheckGracePeriodSeconds(vpcNameTag, clusterName, tdName, roleName, policyName,
@@ -1427,7 +1556,7 @@ resource "aws_lb_target_group" "test" {
 resource "aws_lb" "main" {
   name     = "%s"
   internal = true
-  subnets  = ["${aws_subnet.main.*.id}"]
+  subnets  = ["${aws_subnet.main.*.id[0]}", "${aws_subnet.main.*.id[1]}"]
 }
 
 resource "aws_lb_listener" "front_end" {
@@ -1554,7 +1683,7 @@ EOF
 
 resource "aws_elb" "main" {
   internal = true
-  subnets  = ["${aws_subnet.test.*.id}"]
+  subnets  = ["${aws_subnet.test.*.id[0]}", "${aws_subnet.test.*.id[1]}"]
 
   listener {
     instance_port = 8080
@@ -1705,7 +1834,7 @@ EOF
 
 resource "aws_elb" "main" {
   internal = true
-  subnets  = ["${aws_subnet.test.*.id}"]
+  subnets  = ["${aws_subnet.test.*.id[0]}", "${aws_subnet.test.*.id[1]}"]
 
   listener {
     instance_port = %[6]d
@@ -1958,7 +2087,7 @@ resource "aws_lb_target_group" "test" {
 resource "aws_lb" "main" {
   name            = "%s"
   internal        = true
-  subnets         = ["${aws_subnet.main.*.id}"]
+  subnets         = ["${aws_subnet.main.*.id[0]}", "${aws_subnet.main.*.id[1]}"]
 }
 
 resource "aws_lb_listener" "front_end" {
@@ -2079,7 +2208,7 @@ resource "aws_ecs_service" "main" {
   desired_count = 1
   network_configuration {
     security_groups = [%s]
-    subnets = ["${aws_subnet.main.*.id}"]
+    subnets = ["${aws_subnet.main.*.id[0]}", "${aws_subnet.main.*.id[1]}"]
   }
 }
 `, sg1Name, sg2Name, clusterName, tdName, svcName, securityGroups)
@@ -2160,7 +2289,7 @@ resource "aws_ecs_service" "test" {
   }
   network_configuration {
     security_groups = ["${aws_security_group.test.id}"]
-    subnets = ["${aws_subnet.test.*.id}"]
+    subnets = ["${aws_subnet.test.*.id[0]}", "${aws_subnet.test.*.id[1]}"]
   }
 }
 `, rName, rName, rName, clusterName, tdName, svcName)
@@ -2335,7 +2464,7 @@ resource "aws_subnet" "test" {
 resource "aws_lb" "test" {
   internal = true
   name     = %q
-  subnets  = ["${aws_subnet.test.*.id}"]
+  subnets  = ["${aws_subnet.test.*.id[0]}", "${aws_subnet.test.*.id[1]}"]
 }
 
 resource "aws_lb_listener" "test" {

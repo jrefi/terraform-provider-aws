@@ -46,6 +46,11 @@ func testSweepInstances(region string) error {
 				var nameTag string
 				id := aws.StringValue(instance.InstanceId)
 
+				if instance.State != nil && aws.StringValue(instance.State.Name) == ec2.InstanceStateNameTerminated {
+					log.Printf("[INFO] Skipping terminated EC2 Instance: %s", id)
+					continue
+				}
+
 				for _, instanceTag := range instance.Tags {
 					if aws.StringValue(instanceTag.Key) == "Name" {
 						nameTag = aws.StringValue(instanceTag.Value)
@@ -1064,7 +1069,6 @@ func TestAccAWSInstance_volumeTagsComputed(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckInstanceExists("aws_instance.foo", &v),
 				),
-				ExpectNonEmptyPlan: false,
 			},
 		},
 	})
@@ -1943,6 +1947,27 @@ func TestAccAWSInstance_creditSpecification_unlimitedCpuCredits_t2Tot3Taint(t *t
 	})
 }
 
+func TestAccAWSInstance_disappears(t *testing.T) {
+	var conf ec2.Instance
+	rInt := acctest.RandInt()
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckInstanceDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccInstanceConfig(rInt),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckInstanceExists("aws_instance.foo", &conf),
+					testAccCheckInstanceDisappears(&conf),
+				),
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
+
 func TestAccAWSInstance_UserData_EmptyStringToUnspecified(t *testing.T) {
 	var instance ec2.Instance
 	rInt := acctest.RandInt()
@@ -2076,8 +2101,40 @@ func testAccCheckInstanceExistsWithProvider(n string, i *ec2.Instance, providerF
 	}
 }
 
+func testAccCheckInstanceDisappears(conf *ec2.Instance) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		conn := testAccProvider.Meta().(*AWSClient).ec2conn
+
+		params := &ec2.TerminateInstancesInput{
+			InstanceIds: []*string{conf.InstanceId},
+		}
+
+		if _, err := conn.TerminateInstances(params); err != nil {
+			return err
+		}
+
+		return waitForInstanceDeletion(conn, *conf.InstanceId, 10*time.Minute)
+	}
+}
+
 func TestInstanceTenancySchema(t *testing.T) {
 	actualSchema := resourceAwsInstance().Schema["tenancy"]
+	expectedSchema := &schema.Schema{
+		Type:     schema.TypeString,
+		Optional: true,
+		Computed: true,
+		ForceNew: true,
+	}
+	if !reflect.DeepEqual(actualSchema, expectedSchema) {
+		t.Fatalf(
+			"Got:\n\n%#v\n\nExpected:\n\n%#v\n",
+			actualSchema,
+			expectedSchema)
+	}
+}
+
+func TestInstanceHostIDSchema(t *testing.T) {
+	actualSchema := resourceAwsInstance().Schema["host_id"]
 	expectedSchema := &schema.Schema{
 		Type:     schema.TypeString,
 		Optional: true,
@@ -2716,15 +2773,13 @@ data "aws_ami" "debian_jessie_latest" {
 }
 
 resource "aws_instance" "foo" {
-  ami                         = "${data.aws_ami.debian_jessie_latest.id}"
-  associate_public_ip_address = true
-  count                       = 1
-  instance_type               = "t2.medium"
+  ami           = "${data.aws_ami.debian_jessie_latest.id}"
+  instance_type = "t2.medium"
 
   root_block_device {
+    delete_on_termination = true
     volume_size           = "10"
     volume_type           = "standard"
-    delete_on_termination = true
   }
 
   tags = {
@@ -2733,10 +2788,9 @@ resource "aws_instance" "foo" {
 }
 
 resource "aws_ebs_volume" "test" {
-  depends_on        = ["aws_instance.foo"]
   availability_zone = "${aws_instance.foo.availability_zone}"
-  type       = "gp2"
   size              = "10"
+  type              = "gp2"
 
   tags = {
     Name = "test-terraform"
@@ -2744,7 +2798,6 @@ resource "aws_ebs_volume" "test" {
 }
 
 resource "aws_volume_attachment" "test" {
-  depends_on  = ["aws_ebs_volume.test"]
   device_name = "/dev/xvdg"
   volume_id   = "${aws_ebs_volume.test.id}"
   instance_id = "${aws_instance.foo.id}"

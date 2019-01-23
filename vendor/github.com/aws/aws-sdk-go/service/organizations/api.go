@@ -295,8 +295,7 @@ func (c *Organizations) AttachPolicyRequest(input *AttachPolicyInput) (req *requ
 
 	output = &AttachPolicyOutput{}
 	req = c.newRequest(op, input, output)
-	req.Handlers.Unmarshal.Remove(jsonrpc.UnmarshalHandler)
-	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+	req.Handlers.Unmarshal.Swap(jsonrpc.UnmarshalHandler.Name, protocol.UnmarshalDiscardBodyHandler)
 	return
 }
 
@@ -826,6 +825,12 @@ func (c *Organizations) CreateAccountRequest(input *CreateAccountInput) (req *re
 // If you get an exception that indicates that the operation failed because
 // your organization is still initializing, wait one hour and then try again.
 // If the error persists, contact AWS Support (https://console.aws.amazon.com/support/home#/).
+//
+// Using CreateAccount to create multiple temporary accounts is not recommended.
+// You can only close an account from the Billing and Cost Management Console,
+// and you must be signed in as the root user. For information on the requirements
+// and process for closing an account, see Closing an AWS Account (http://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_close.html)
+// in the AWS Organizations User Guide.
 //
 // When you create a member account with this operation, you can choose whether
 // to create the account with the IAM User and Role Access to Billing Information
@@ -2068,8 +2073,7 @@ func (c *Organizations) DeleteOrganizationRequest(input *DeleteOrganizationInput
 
 	output = &DeleteOrganizationOutput{}
 	req = c.newRequest(op, input, output)
-	req.Handlers.Unmarshal.Remove(jsonrpc.UnmarshalHandler)
-	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+	req.Handlers.Unmarshal.Swap(jsonrpc.UnmarshalHandler.Name, protocol.UnmarshalDiscardBodyHandler)
 	return
 }
 
@@ -2233,8 +2237,7 @@ func (c *Organizations) DeleteOrganizationalUnitRequest(input *DeleteOrganizatio
 
 	output = &DeleteOrganizationalUnitOutput{}
 	req = c.newRequest(op, input, output)
-	req.Handlers.Unmarshal.Remove(jsonrpc.UnmarshalHandler)
-	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+	req.Handlers.Unmarshal.Swap(jsonrpc.UnmarshalHandler.Name, protocol.UnmarshalDiscardBodyHandler)
 	return
 }
 
@@ -2403,8 +2406,7 @@ func (c *Organizations) DeletePolicyRequest(input *DeletePolicyInput) (req *requ
 
 	output = &DeletePolicyOutput{}
 	req = c.newRequest(op, input, output)
-	req.Handlers.Unmarshal.Remove(jsonrpc.UnmarshalHandler)
-	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+	req.Handlers.Unmarshal.Swap(jsonrpc.UnmarshalHandler.Name, protocol.UnmarshalDiscardBodyHandler)
 	return
 }
 
@@ -3484,8 +3486,7 @@ func (c *Organizations) DetachPolicyRequest(input *DetachPolicyInput) (req *requ
 
 	output = &DetachPolicyOutput{}
 	req = c.newRequest(op, input, output)
-	req.Handlers.Unmarshal.Remove(jsonrpc.UnmarshalHandler)
-	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+	req.Handlers.Unmarshal.Swap(jsonrpc.UnmarshalHandler.Name, protocol.UnmarshalDiscardBodyHandler)
 	return
 }
 
@@ -3760,8 +3761,7 @@ func (c *Organizations) DisableAWSServiceAccessRequest(input *DisableAWSServiceA
 
 	output = &DisableAWSServiceAccessOutput{}
 	req = c.newRequest(op, input, output)
-	req.Handlers.Unmarshal.Remove(jsonrpc.UnmarshalHandler)
-	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+	req.Handlers.Unmarshal.Swap(jsonrpc.UnmarshalHandler.Name, protocol.UnmarshalDiscardBodyHandler)
 	return
 }
 
@@ -4307,8 +4307,7 @@ func (c *Organizations) EnableAWSServiceAccessRequest(input *EnableAWSServiceAcc
 
 	output = &EnableAWSServiceAccessOutput{}
 	req = c.newRequest(op, input, output)
-	req.Handlers.Unmarshal.Remove(jsonrpc.UnmarshalHandler)
-	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+	req.Handlers.Unmarshal.Swap(jsonrpc.UnmarshalHandler.Name, protocol.UnmarshalDiscardBodyHandler)
 	return
 }
 
@@ -5319,8 +5318,7 @@ func (c *Organizations) LeaveOrganizationRequest(input *LeaveOrganizationInput) 
 
 	output = &LeaveOrganizationOutput{}
 	req = c.newRequest(op, input, output)
-	req.Handlers.Unmarshal.Remove(jsonrpc.UnmarshalHandler)
-	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+	req.Handlers.Unmarshal.Swap(jsonrpc.UnmarshalHandler.Name, protocol.UnmarshalDiscardBodyHandler)
 	return
 }
 
@@ -8585,8 +8583,7 @@ func (c *Organizations) MoveAccountRequest(input *MoveAccountInput) (req *reques
 
 	output = &MoveAccountOutput{}
 	req = c.newRequest(op, input, output)
-	req.Handlers.Unmarshal.Remove(jsonrpc.UnmarshalHandler)
-	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+	req.Handlers.Unmarshal.Swap(jsonrpc.UnmarshalHandler.Name, protocol.UnmarshalDiscardBodyHandler)
 	return
 }
 
@@ -8763,8 +8760,7 @@ func (c *Organizations) RemoveAccountFromOrganizationRequest(input *RemoveAccoun
 
 	output = &RemoveAccountFromOrganizationOutput{}
 	req = c.newRequest(op, input, output)
-	req.Handlers.Unmarshal.Remove(jsonrpc.UnmarshalHandler)
-	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+	req.Handlers.Unmarshal.Swap(jsonrpc.UnmarshalHandler.Name, protocol.UnmarshalDiscardBodyHandler)
 	return
 }
 
@@ -10045,7 +10041,7 @@ type CreateOrganizationInput struct {
 	//
 	//    * CONSOLIDATED_BILLING: All member accounts have their bills consolidated
 	//    to and paid by the master account. For more information, see Consolidated
-	//    Billing (http://docs.aws.amazon.com/organizations/latest/userguide/orgs_getting-started_concepts.html#feature-set-cb-only)
+	//    billing (http://docs.aws.amazon.com/organizations/latest/userguide/orgs_getting-started_concepts.html#feature-set-cb-only)
 	//    in the AWS Organizations User Guide.
 	//
 	//    * ALL: In addition to all the features supported by the consolidated billing

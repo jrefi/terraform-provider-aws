@@ -284,7 +284,7 @@ func testAccAWSCloudTrail_logValidation(t *testing.T) {
 func testAccAWSCloudTrail_kmsKey(t *testing.T) {
 	var trail cloudtrail.Trail
 	cloudTrailRandInt := acctest.RandInt()
-	keyRegex := regexp.MustCompile("^arn:aws:([a-zA-Z0-9\\-])+:([a-z]{2}-[a-z]+-\\d{1})?:(\\d{12})?:(.*)$")
+	keyRegex := regexp.MustCompile(`^arn:aws:([a-zA-Z0-9\-])+:([a-z]{2}-[a-z]+-\d{1})?:(\d{12})?:(.*)$`)
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
@@ -1367,7 +1367,7 @@ resource "aws_lambda_function" "lambda_function_test" {
     function_name = "tf-test-trail-event-select-%d"
     role = "${aws_iam_role.iam_for_lambda.arn}"
     handler = "exports.example"
-    runtime = "nodejs4.3"
+    runtime = "nodejs8.10"
 }
 `, cloudTrailRandInt, cloudTrailRandInt, cloudTrailRandInt, cloudTrailRandInt, cloudTrailRandInt, cloudTrailRandInt, cloudTrailRandInt)
 }

@@ -10,7 +10,7 @@ import (
 
 func TestAccDataSourceAWSMqBroker_basic(t *testing.T) {
 	rString := acctest.RandString(7)
-	prefix := "tf-acctest-d-mq-broker"
+	prefix := "tf-acc-test-d-mq-broker"
 	brokerName := fmt.Sprintf("%s-%s", prefix, rString)
 
 	resource.ParallelTest(t, resource.TestCase{
@@ -168,8 +168,8 @@ resource "aws_mq_broker" "acctest" {
   }
 
   publicly_accessible = true
-  security_groups     = ["${aws_security_group.acctest.*.id}"]
-  subnet_ids          = ["${aws_subnet.acctest.*.id}"]
+  security_groups     = ["${aws_security_group.acctest.0.id}", "${aws_security_group.acctest.1.id}"]
+  subnet_ids          = ["${aws_subnet.acctest.0.id}", "${aws_subnet.acctest.1.id}"]
 
   user {
     username = "Ender"

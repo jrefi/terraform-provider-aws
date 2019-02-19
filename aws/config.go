@@ -603,7 +603,7 @@ func (c *Config) Client() (interface{}, error) {
 	client.guarddutyconn = guardduty.New(sess)
 	client.inspectorconn = inspector.New(sess)
 	client.iotconn = iot.New(sess)
-	client.kafkaconn = kafka.New(sess)
+	client.kafkaconn = kafka.New(awsKafkaSess)
 	client.kinesisanalyticsconn = kinesisanalytics.New(awsKinesisAnalyticsSess)
 	client.kinesisconn = kinesis.New(awsKinesisSess)
 	client.kmsconn = kms.New(awsKmsSess)
